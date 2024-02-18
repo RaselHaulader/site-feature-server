@@ -10,12 +10,11 @@ app.use(express.json());
 app.use(cors());
 app.use(express.json());
 
-
-const uri = `mongodb+srv://${'siteFeatures'}:${'pm54H1J8cWYSKrVV'}@cluster0.x89oq.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
+const uri = `mongodb+srv://${process.env.USER}:${process.env.PASS}@cluster0.x89oq.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
 async function run() {
-  try {
+  try { 
     await client.connect();
     console.log('connected to db');
     const siteFeatures = client.db("SiteFeatures");
@@ -88,14 +87,11 @@ async function run() {
     // add pages
     app.post('/addPage', async (req, res) => {
       const page = req.body;
-      console.log({ page })
-      console.log(page.sections.map(({ key }) => parseFloat(key)))
       // push page into multiple section -> pages object
       const updatedDocument = await sectionsCollection.updateMany(
         { key: { $in: page.sections.map(({ key }) => parseFloat(key)) } },
         { $push: { pages: { name: page.name, key: parseFloat(page.key) } } }
       );
-      console.log(updatedDocument)
       const result = await pagesCollection.insertOne(page);
       res.json(result)
     })
@@ -106,16 +102,12 @@ async function run() {
       const editPageData = data.editPageData;
       const addedSections = data.addedSections;
       const removedSections = data.removedSections;
-      console.log('editPageData', editPageData)
-      console.log('addedSections', addedSections)
-      console.log('removedSections', removedSections)
       const error = [];
       if (addedSections.length > 0) {
         const updatedAddedSections = await sectionsCollection.updateMany(
           { key: { $in: addedSections.map(({ key }) => parseFloat(key)) } },
           { $push: { pages: { name: editPageData.name, key: parseFloat(editPageData.key) } } }
         );
-        console.log(updatedAddedSections)
         if (updatedAddedSections.modifiedCount != addedSections.length) {
           error.push({
             message: 'Failed to update associated sections for added section'
@@ -127,9 +119,6 @@ async function run() {
           { key: { $in: removedSections.map(({ key }) => parseFloat(key)) } },
           { $pull: { pages: { name: editPageData.name, key: parseFloat(editPageData.key) } } }
         );
-        console.log(updatedRemovedSections)
-        console.log(updatedRemovedSections.modifiedCount)
-        console.log(updatedRemovedSections.modifiedCount === removedSections.length)
         if (updatedRemovedSections.modifiedCount != removedSections.length) {
           error.push({
             message: 'Failed to update associated sections for removed section'
@@ -143,7 +132,6 @@ async function run() {
         const updateDoc = { $set: editPageData }
         const option = { upsert: false }
         const result = await pagesCollection.updateOne(filter, updateDoc, option);
-        console.log(result)
         res.json(result)
       }
     })
@@ -151,8 +139,6 @@ async function run() {
     // delete pages
     app.post('/deletePage', async (req, res) => {
       const data = req.body;
-      console.log('delete data of', data)
-      console.log('delete data of', data.sections)
       const updatedDocuments = await sectionsCollection.updateMany(
         { key: { $in: data.sections?.map(({ key }) => parseFloat(key)) } },
         { $pull: { pages: { name: data.name, key: parseFloat(data.key) } } }
@@ -171,7 +157,6 @@ async function run() {
     // add section
     app.post('/addSection', async (req, res) => {
       const section = req.body;
-      console.log({ section })
       // push components into multiple section -> pages object
       const updatedDocument = await componentsCollection.updateMany(
         { key: { $in: section.components.map(({ key }) => parseFloat(key)) } },
@@ -183,8 +168,6 @@ async function run() {
         { key: { $in: section.pages.map(({ key }) => parseFloat(key)) } },
         { $push: { sections: { name: section.name, key: parseFloat(section.key) } } }
       );
-      console.log(updatedDocument)
-      console.log(updatedDocument2)
       const result = await sectionsCollection.insertOne(section);
       res.json(result)
     })
@@ -192,7 +175,6 @@ async function run() {
     // delete section
     app.post('/deleteSection', async (req, res) => {
       const section = req.body;
-      console.log('delete data of', section)
       const updatedDocuments = await componentsCollection.updateMany(
         { key: { $in: section.components?.map(({ key }) => parseFloat(key)) } },
         { $pull: { sections: { name: section.name, key: parseFloat(section.key) } } }
@@ -204,14 +186,6 @@ async function run() {
       const updatedDocuments3 = await historyCollection.deleteMany({
         sectionKey: parseFloat(section.key)
       });
-      console.log(updatedDocuments)
-      console.log(updatedDocuments2)
-      console.log(updatedDocuments3)
-      // if (updatedDocuments.modifiedCount != section.components?.length) {
-      //   res.status(500).send({ 
-      //     message: 'Failed to delete associated sections'
-      //   });
-      // }
       const result = await sectionsCollection.deleteOne({ key: parseFloat(section.key) });
       res.json(result)
     })
@@ -224,16 +198,12 @@ async function run() {
       const removedPages = data.removedPages;
       const addedComponents = data.addedComponents;
       const removedComponents = data.removedComponents;
-      console.log('editedSectionData', editedSectionData)
-      console.log('addedComponents', addedComponents)
-      console.log('removedComponents', removedComponents)
       const error = [];
       if (addedPages.length > 0) {
         const updatedAddedPages = await pagesCollection.updateMany(
           { key: { $in: addedPages.map(({ key }) => parseFloat(key)) } },
           { $push: { sections: { name: editedSectionData.name, key: parseFloat(editedSectionData.key) } } }
         );
-        console.log(updatedAddedPages)
         if (updatedAddedPages.modifiedCount != addedPages.length) {
           error.push({
             message: 'Failed to update associated page for added page'
@@ -245,9 +215,6 @@ async function run() {
           { key: { $in: removedPages.map(({ key }) => parseFloat(key)) } },
           { $pull: { sections: { name: editedSectionData.name, key: parseFloat(editedSectionData.key) } } }
         );
-        console.log(updatedRemovedPages)
-        console.log(updatedRemovedPages.modifiedCount)
-        console.log(updatedRemovedPages.modifiedCount === removedPages.length)
         if (updatedRemovedPages.modifiedCount != removedPages.length) {
           error.push({
             message: 'Failed to update associated page for removed page'
@@ -260,7 +227,6 @@ async function run() {
           { key: { $in: addedComponents.map(({ key }) => parseFloat(key)) } },
           { $push: { sections: { name: editedSectionData.name, key: parseFloat(editedSectionData.key) } } }
         );
-        console.log(updatedAddedComponents)
         if (updatedAddedComponents.modifiedCount != addedComponents.length) {
           error.push({
             message: 'Failed to update associated component for added component'
@@ -272,9 +238,6 @@ async function run() {
           { key: { $in: removedComponents.map(({ key }) => parseFloat(key)) } },
           { $pull: { sections: { name: editedSectionData.name, key: parseFloat(editedSectionData.key) } } }
         );
-        console.log(updatedRemovedComponents)
-        console.log(updatedRemovedComponents.modifiedCount)
-        console.log(updatedRemovedComponents.modifiedCount === removedComponents.length)
         if (updatedRemovedComponents.modifiedCount != removedComponents.length) {
           error.push({
             message: 'Failed to update associated component for removed component'
@@ -288,7 +251,6 @@ async function run() {
         const updateDoc = { $set: editedSectionData }
         const option = { upsert: false }
         const result = await sectionsCollection.updateOne(filter, updateDoc, option);
-        console.log(result)
         res.json(result)
       }
     })
@@ -296,13 +258,11 @@ async function run() {
     // add component
     app.post('/addComponent', async (req, res) => {
       const component = req.body;
-      console.log({ component })
       // push section into multiple section -> pages object
       const updatedDocument = await sectionsCollection.updateMany(
         { key: { $in: component.sections.map(({ key }) => parseFloat(key)) } },
         { $push: { components: { name: component.name, key: parseFloat(component.key) } } }
       );
-      console.log(updatedDocument)
       const result = await componentsCollection.insertOne(component);
       res.json(result)
     })
@@ -310,17 +270,11 @@ async function run() {
     // delete component
     app.post('/deleteComponent', async (req, res) => {
       const component = req.body;
-      console.log('delete data of', component)
+      console.log(component)
       const updatedDocuments = await sectionsCollection.updateMany(
         { key: { $in: component.sections?.map(({ key }) => parseFloat(key)) } },
         { $pull: { components: { name: component.name, key: parseFloat(component.key) } } }
       );
-      console.log(updatedDocuments)
-      if (updatedDocuments.modifiedCount != component.sections?.length) {
-        res.status(500).send({
-          message: 'Failed to delete associated components'
-        });
-      }
       const result = await componentsCollection.deleteOne({ key: parseFloat(component.key) });
       res.json(result)
     })
@@ -331,16 +285,12 @@ async function run() {
       const editComponentData = data.editComponentData;
       const addedSections = data.addedSections;
       const removedSections = data.removedSections;
-      console.log('editComponentData', editComponentData)
-      console.log('addedSections', addedSections)
-      console.log('removedSections', removedSections)
       const error = [];
       if (addedSections.length > 0) {
         const updatedAddedSections = await sectionsCollection.updateMany(
           { key: { $in: addedSections.map(({ key }) => parseFloat(key)) } },
           { $push: { components: { name: editComponentData.name, key: parseFloat(editComponentData.key) } } }
         );
-        console.log(updatedAddedSections)
         if (updatedAddedSections.modifiedCount != addedSections.length) {
           error.push({
             message: 'Failed to update associated components for added components'
@@ -352,9 +302,6 @@ async function run() {
           { key: { $in: removedSections.map(({ key }) => parseFloat(key)) } },
           { $pull: { components: { name: editComponentData.name, key: parseFloat(editComponentData.key) } } }
         );
-        console.log(updatedRemovedSections)
-        console.log(updatedRemovedSections.modifiedCount)
-        console.log(updatedRemovedSections.modifiedCount === removedSections.length)
         if (updatedRemovedSections.modifiedCount != removedSections.length) {
           error.push({
             message: 'Failed to update associated components for removed components'
@@ -368,7 +315,6 @@ async function run() {
         const updateDoc = { $set: editComponentData }
         const option = { upsert: false }
         const result = await componentsCollection.updateOne(filter, updateDoc, option);
-        console.log(result)
         res.json(result)
       }
     })
@@ -376,7 +322,6 @@ async function run() {
     // save user
     app.post('/saveUser', async (req, res) => {
       const user = req.body;
-      console.log(user)
       const existingData = await usersCollection.findOne({ email: user.email });
       if (existingData) {
         // if exist send existing user data to set role 
@@ -391,7 +336,6 @@ async function run() {
     app.post('/updateRole', async (req, res) => {
       const data = req.body;
       const user = data.user;
-      console.log(user);
       const role = data.role;
       const result = await usersCollection.updateOne(
         { email: user.email },
@@ -410,7 +354,6 @@ async function run() {
     // add history
     app.post('/addHistory', async (req, res) => {
       const history = req.body;
-      console.log({ history })
       const query = {
         site: history.site,
         userEmail: history.userEmail,
@@ -419,10 +362,7 @@ async function run() {
       const count = await historyCollection.countDocuments(query);
       if (count >= 30) {
         const removedOverItem = await historyCollection.find(query).sort({ _id: 1 }).limit(1).toArray();
-        console.log(removedOverItem[0])
-        console.log(removedOverItem[0]._id)
         const removedResult = await historyCollection.deleteOne({ _id: new ObjectId(removedOverItem[0]._id) });
-        console.log({removedResult})
       }
       const result = await historyCollection.insertOne(history);
       res.json(result)
@@ -439,7 +379,6 @@ async function run() {
     // get all history by filter
     app.post('/getAllHistory', async (req, res) => {
       const filterData = req.body;
-      console.log(filterData)
       const query = {};
       if (filterData.time === "Today") {
         const today = new Date();
@@ -460,12 +399,10 @@ async function run() {
       const pagePerItem = 5;
       filterData.userEmail && (query.userEmail = filterData.userEmail);
       filterData.sectionKey && (query.sectionKey = parseFloat(filterData.sectionKey));
-      console.log(pagePerItem * filterData.page - 1)
       
       const result = await historyCollection.find(query).skip(pagePerItem * (filterData.page - 1)).limit(5).sort({ _id: -1 }).toArray();
 
       const count = await historyCollection.countDocuments(query);
-      console.log({ count: count })
       let spentTime;
       let eligibleForSpentTimeData = false
       let days = 0;
@@ -477,9 +414,7 @@ async function run() {
 
       if (eligibleForSpentTimeData) {
         const allHistoryOfTheUser = await historyCollection.find(query).project({ _id: 0, timeLog: 1 }).toArray();
-        console.log({ allHistoryOfTheUser })
         allHistoryOfTheUser.forEach(history => {
-          console.log(history.timeLog)
           parseFloat(history.timeLog.days)
           parseFloat(history.timeLog.hour)
           parseFloat(history.timeLog.min)
@@ -487,9 +422,6 @@ async function run() {
           hours += parseFloat(history.timeLog.hour);
           minutes += parseFloat(history.timeLog.min);
         })
-        console.log(days)
-        console.log(hours)
-        console.log(minutes)
         hours += Math.floor(minutes / 60);
         minutes = minutes % 60;
 
@@ -497,7 +429,6 @@ async function run() {
         hours = hours % 8;
 
         spentTime = `${days}d ${hours}h ${minutes}m`;
-        console.log(spentTime)
       }
       const sendResponse = { result, count: count }
       spentTime && (sendResponse.spentTime = spentTime);
@@ -509,9 +440,6 @@ async function run() {
       const count = await historyCollection.estimatedDocumentCount();
       res.send({ count });
     })
-
-    // collection.find().sort({ _id: 1 }).limit(1).toArray()
-
   } finally {
 
   }
