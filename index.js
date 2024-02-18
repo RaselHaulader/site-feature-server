@@ -411,6 +411,19 @@ async function run() {
     app.post('/addHistory', async (req, res) => {
       const history = req.body;
       console.log({ history })
+      const query = {
+        site: history.site,
+        userEmail: history.userEmail,
+        sectionKey: history.sectionKey,
+      }
+      const count = await historyCollection.countDocuments(query);
+      if (count >= 30) {
+        const removedOverItem = await historyCollection.find(query).sort({ _id: 1 }).limit(1).toArray();
+        console.log(removedOverItem[0])
+        console.log(removedOverItem[0]._id)
+        const removedResult = await historyCollection.deleteOne({ _id: new ObjectId(removedOverItem[0]._id) });
+        console.log({removedResult})
+      }
       const result = await historyCollection.insertOne(history);
       res.json(result)
     })
@@ -419,7 +432,7 @@ async function run() {
     app.get('/getHistory/:sectionKey', async (req, res) => {
       const sectionKey = req.params.sectionKey;
       const query = { sectionKey: parseFloat(sectionKey) }
-      const result = await historyCollection.find(query).toArray();
+      const result = await historyCollection.find(query).sort({ _id: -1 }).toArray();
       res.json(result);
     })
 
@@ -427,23 +440,77 @@ async function run() {
     app.post('/getAllHistory', async (req, res) => {
       const filterData = req.body;
       console.log(filterData)
-      if (false) {
-
-      } else {
-        const result = await historyCollection.find({}).toArray();
-        res.json(result);
+      const query = {};
+      if (filterData.time === "Today") {
+        const today = new Date();
+        query.date = { $gte: new Date(today.setHours(0, 0, 0, 0)).toISOString(), $lte: new Date(today.setHours(23, 59, 59, 999)).toISOString() }
+      } else if (filterData.time === "Last 5 days") {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0)
+        const today2 = new Date();
+        const lastWeek = new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000);
+        query.date = { $gte: new Date(lastWeek.setHours(0, 0, 0, 0)).toISOString(), $lte: new Date(today2).toISOString() }
+      } else if (filterData.time === "Last 30 days") {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0)
+        const today2 = new Date();
+        const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+        query.date = { $gte: new Date(lastMonth.setHours(0, 0, 0, 0)).toISOString(), $lte: new Date(today2).toISOString() }
       }
+      const pagePerItem = 5;
+      filterData.userEmail && (query.userEmail = filterData.userEmail);
+      filterData.sectionKey && (query.sectionKey = parseFloat(filterData.sectionKey));
+      console.log(pagePerItem * filterData.page - 1)
+      
+      const result = await historyCollection.find(query).skip(pagePerItem * (filterData.page - 1)).limit(5).sort({ _id: -1 }).toArray();
 
-      // const query = { sectionKey: parseFloat(sectionKey) }
-      // const result = await historyCollection.find(query).toArray();
-      // res.json(result);
+      const count = await historyCollection.countDocuments(query);
+      console.log({ count: count })
+      let spentTime;
+      let eligibleForSpentTimeData = false
+      let days = 0;
+      let hours = 0;
+      let minutes = 0;
 
-      // const result = await productCollection.find()
-      // .skip(page * size)
-      // .limit(size)
-      // .toArray();
-      // res.send(result);
+      (filterData.userEmail && (filterData.time === "Last 5 days" || filterData.time === "Today")) && (eligibleForSpentTimeData = true);
+      (filterData.userEmail && filterData.sectionKey) && (eligibleForSpentTimeData = true);
+
+      if (eligibleForSpentTimeData) {
+        const allHistoryOfTheUser = await historyCollection.find(query).project({ _id: 0, timeLog: 1 }).toArray();
+        console.log({ allHistoryOfTheUser })
+        allHistoryOfTheUser.forEach(history => {
+          console.log(history.timeLog)
+          parseFloat(history.timeLog.days)
+          parseFloat(history.timeLog.hour)
+          parseFloat(history.timeLog.min)
+          days += parseFloat(history.timeLog.days);
+          hours += parseFloat(history.timeLog.hour);
+          minutes += parseFloat(history.timeLog.min);
+        })
+        console.log(days)
+        console.log(hours)
+        console.log(minutes)
+        hours += Math.floor(minutes / 60);
+        minutes = minutes % 60;
+
+        days += Math.floor(hours / 8);
+        hours = hours % 8;
+
+        spentTime = `${days}d ${hours}h ${minutes}m`;
+        console.log(spentTime)
+      }
+      const sendResponse = { result, count: count }
+      spentTime && (sendResponse.spentTime = spentTime);
+      res.json(sendResponse);
     })
+
+    // get history count
+    app.get('/historyCount', async (req, res) => {
+      const count = await historyCollection.estimatedDocumentCount();
+      res.send({ count });
+    })
+
+    // collection.find().sort({ _id: 1 }).limit(1).toArray()
 
   } finally {
 
