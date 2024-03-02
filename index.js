@@ -380,6 +380,7 @@ async function run() {
     app.post('/getAllHistory', async (req, res) => {
       const filterData = req.body;
       const query = {};
+      query.site = filterData.site;
       if (filterData.time === "Today") {
         const today = new Date();
         query.date = { $gte: new Date(today.setHours(0, 0, 0, 0)).toISOString(), $lte: new Date(today.setHours(23, 59, 59, 999)).toISOString() }
