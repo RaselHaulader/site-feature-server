@@ -16,7 +16,7 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 async function run() {
   try { 
     await client.connect();
-    console.log('connected to db');
+    console.log('connected to mg db');
     const siteFeatures = client.db("SiteFeatures");
     const sitesCollection = siteFeatures.collection('sites');
     const pagesCollection = siteFeatures.collection('pages');
